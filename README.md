@@ -1,174 +1,230 @@
-1. ROUTE
+# Laravel Routing, Blade, dan Controller
 
-Route WEB kalau pakai titik artinya masuk ke folder
-
+## 1. Routing di Laravel
+### a. Struktur Folder dalam Routing
+Jika menggunakan titik dalam route, maka akan masuk ke dalam folder:
+```php
 Route::get('/', function () {
     return view('1.2.3.tes');
 });
+```
 
-
-Untuk passing variabel ke Route Web,seperti ini
+### b. Passing Variabel ke Route
+Untuk mengirim variabel ke view:
+```php
 Route::get('profile', function () {
     $name = 'James';
     return view('profile', ['name' => $name]);
 });
-Kalau Sama pakai compact
+```
+Bisa juga menggunakan `compact()`:
+```php
+Route::get('profile', function () {
+    $name = 'James';
+    return view('profile', compact('name'));
+});
+```
 
-2. Bagaimana Dengan Assets
-Include Css dan Js ke Blade
-Taruh ke folder Public 
-
-Jika blade didalam folder, maka untuk mengimpor asset harus ditambah "/" supaya mengakses main directory
-
+---
+## 2. Asset Management
+### a. Menyertakan CSS dan JS di Blade
+Simpan file CSS dan JS di folder `public`, lalu sertakan di dalam Blade:
+```html
 <link rel="stylesheet" href="/css/app.css">
+```
+Best practice menggunakan `asset()`:
+```html
+<link rel="stylesheet" href="{{ asset('css/app.css') }}">
+```
 
-BEST PRACTICE : href = "{{asset(css/app.css)}}"
+---
+## 3. Blade Templating Engine
+### a. Menggunakan `@include`
+Digunakan untuk menghindari duplikasi kode:
+```php
+@include('header')
+```
 
-3.Blade Templating Engine
-
-3.1 Include untuk membuat template supaya tidak berulang ulang
-
-3.2 Gunakan Yield di parent supaya bisa diisi konten dinamis (seperti slot di vue.js)
+### b. Menggunakan `@yield`
+Gunakan di parent untuk membuat konten dinamis:
+```php
 @yield('content')
+```
+Di child component:
+```php
+@section('content')
+    <p>Isi Konten</p>
+@endsection
+```
+Cara lain:
+```php
+@extends('layouts.app', ['title' => 'HomePage'])
+```
 
-PANGGIL di komponen anak: @section('content', <<IsiKonten>>)
+---
+## 4. Blade Components
+`@yield` dan `@include` dapat diganti dengan Blade Component.
 
-Cara Lain : Gunakan {{$variabel}} dan tambahkan ini @extends('layouts.app', ['title' => 'HomePage'])
-
-4. MEMAHAMI BLADE COMPONENT
-
-yield,include bisa diganti menggunakan component
-
-SYARAT : HARUS DI DALAM FOLDER COMPONENTS
-Definisikan component yang ingin dinamis dengan seperti ini:
+### a. Contoh Component
+Definisikan komponen:
+```php
 <div class="alert">
     <div class="alert-header">
         {{ $title }}
     </div>
     {{ $slot }}
 </div>
+```
 
-Lalu panggil dengan menggunakan @component() @endcomponent atau dengan anonymous component 
-CONTOH : <x-navbar><x-navbar>
+Gunakan di Blade:
+```php
+<x-navbar></x-navbar>
+```
+Buat component dengan Artisan:
+```sh
+php artisan make:component Alert
+```
+File component akan ada di `app/View/Components/`.
 
+Jika ingin mengubah tampilan yang dirender (layout), ubah fungsi `render()` dalam component.
 
-Cara membuat component : php artisan make:component
-Lalu buka folder app/view maka akan ada file php hasil generate component
+---
+## 5. Layout dengan Component
+Jika variabel dinamis hanya berisi string, gunakan sebagai props:
 
-Jika ingin mengubah file yang di render karena itu adalah layout (BUKAN COMPONENT) maka buka app/view dan ganti fungsi render() dengan return folder yang sesuai
-
-5. Layout dengan Komponent
-
-Jika variabel dinamis hanya berisi string bisa digunakan sebagai props saja seperti ini
-
-Folder Layouts/app.blade.php (Parent)
-
+**Parent (`Layouts/app.blade.php`)**:
+```php
 <title>{{ $title }} | DAMS</title>
+{{ $slot }}
+```
 
-Children
-<x-app-layout title = "HomePage">
+**Child**:
+```php
+<x-app-layout title="HomePage">
     HomePage
 </x-app-layout>
+```
 
-Variabel diterima sebegai parameter di fungsi construct dalam folder app/view/components
-
-public $title;
-public function __construct($title){
-    $this-> title = $title;
+### a. Mengatur Default Value di Constructor
+Jika variabel dalam `__construct` bersifat wajib, buat opsional:
+```php
+public function __construct($title = null) {
+    $this->title = $title ?? "DAMS";
 }
+```
 
-NAMUN TULISAN "HomePage" di children tak bisa dibaca, Oleh karena itu di parent tambahkan {{$slot}} untuk membaca element yang ingin dimasukkan ke childrennya
-
-Variabel didalam fungsi _construct bersifat required, untuk membuatnya menjadi OPSIONAL-> Buatlah menjadi null 
-Jika ingin ada default valuenya buatlah tepat di constructor nya
-$this-> title = $title ?? "DAMS";
-
-6. Sisip Jika Diperlukan 
-Bagaimana satu page memiliki custom style/javascript
-
-- TAMBAHKAN DI PARENT
+---
+## 6. Menambahkan Custom Style/Javascript di Page
+Tambahkan di **Parent**:
+```php
 {{ $styles }}
+```
 
-- PARENT (app/view/components)
-Tambahkan variabel di app/view/components untuk menangani nya
-    public $title;
-    public $styles = null;
-    public function __construct($title = null){
-        //
-        $this-> title = $title ?? "DAMS";
-    }
+Tambahkan variabel di component:
+```php
+public $styles = null;
+```
 
-- SETELAH ITU panggil di component anak
+Gunakan di **Child**:
+```php
 @slot('styles')
-        <style>
-            body{
-                background-color: red;
-            }
-        </style>
+    <style>
+        body { background-color: red; }
+    </style>
 @endslot
+```
 
-7. Passing request dari url ke view (Request dan Wildcard)
-
-Bisa ga dari url (name =adam) tampilkan adam ke viewnya
-- Request 
-Gunakan yang namanya Request (Import class use Illuminate\Http\Request)
-Route::get('profile', function  (Request $request) {
+---
+## 7. Passing Request dari URL ke View
+### a. Menggunakan `Request`
+```php
+use Illuminate\Http\Request;
+Route::get('profile', function (Request $request) {
     $name = $request->name;
     return "MY NAME IS {$name}";
 });
-
-Cara panggilnya
+```
+Pemanggilan:
+```php
 <x-app-layout title="{{ $name ?? 'Profile' }}">
-    <h1>{{$name ?? 'Profile'}}</h1>
+    <h1>{{ $name ?? 'Profile' }}</h1>
 </x-app-layout>
-Jika ingin menampilkan echo dengan component bisa menggunakan ":" (harus berupa props)
-ATAU
+```
+Atau:
+```php
 <x-app-layout :title="$name ?? 'Profile'">
-    <h1>{{$name ?? 'Profile'}}</h1>
+    <h1>{{ $name ?? 'Profile' }}</h1>
 </x-app-layout>
+```
 
-- Wildcard
-Route::get('profile/{username}', function  ($username) {
-
+### b. Menggunakan Wildcard
+```php
+Route::get('profile/{username}', function ($username) {
     return view('profile', ['name' => $username]);
 });
+```
 
-8. Controller pertama
-- Controller supaya kode bisa memaintain fungsi dari setiap aksi (POST,GET,DELETE)
-Buat dengan command : php artisan make:controller
-Nama controller menggunakan camel case contoh : (UserController)
+---
+## 8. Controller di Laravel
+### a. Membuat Controller
+Gunakan Artisan:
+```sh
+php artisan make:controller UserController
+```
+Nama controller harus menggunakan CamelCase (`UserController`).
 
-- Untuk memanggil controller di route caranya :
+### b. Memanggil Controller di Route
+```php
 Route::get('/', [UserController::class, 'index']);
+```
 
-- Jika route tidak mempunyai action -> hanya return view gunakan fungsi __invoke di controllernya()
-public function __invoke()
-{
+Jika tidak ada aksi lain, gunakan `__invoke()`:
+```php
+public function __invoke() {
     return 'home';
 }
-Cara memanggilnya tidak perlu array : Route::get('/', HomeController::class);
+```
+Pemanggilan tanpa array:
+```php
+Route::get('/', HomeController::class);
+```
 
-untuk method CREATE gunakan Route::post dan fungsinya bernama store
-public function store(){
+### c. Method `POST`
+Gunakan `Route::post` dan method `store()` di Controller:
+```php
+public function store() {
     dd('submitted');
 }
-
-Tambahkan di view untuk menangani post request
-Contoh:
+```
+Gunakan di Blade:
+```html
 <form action="/contact" method="post">
     @csrf
     <button type="submit">Send</button>
 </form>
+```
 
-9. Passing Request dengan Controller
-- Di Route
+---
+## 9. Passing Request ke Controller
+### a. Route dengan Parameter
+```php
 Route::get('profile/{identifier}', [ProfileInformationController::class,'__invoke']);
-- Di controller
-public function __invoke($identifier)
-{
-    return view('profile',compact('identifier'));
+```
+
+### b. Controller
+```php
+public function __invoke($identifier) {
+    return view('profile', compact('identifier'));
 }
-- Di View
+```
+
+### c. View
+```php
 <x-app-layout title="{{ $identifier ?? 'Profile' }}">
-    <h1>{{$identifier ?? 'Profile'}}</h1>
+    <h1>{{ $identifier ?? 'Profile' }}</h1>
 </x-app-layout>
+```
+
+---
+### ✅ **Selesai!** 🚀
+
